@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { COMMON_CURRENCIES } from './utils';
 
 
 const EXCHANGE = 'KUCOIN';
@@ -56,6 +57,41 @@ class KucoinRest {
     return (start + (intervalInSeconds * limit));
   }
 
+
+  async getSymbols() {
+    const options = {
+      method: 'GET',
+      url: `${this.proxy}${this.urls.api}/api/v1/symbols`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        return response.data;
+      }
+      console.error(`Status=${response.status} get symbols from ${EXCHANGE} because:`, response.data);
+    } catch (err) {
+      console.error(`Error fetching get symbols from ${EXCHANGE} because:`, err);
+    }
+  }
+
+  async loadMarkets() {
+    const symbols = await this.getSymbols();
+    const markets = {};
+    (symbols.data).forEach((symbol) => {
+      const base = COMMON_CURRENCIES[symbol.baseCurrency] ? COMMON_CURRENCIES[symbol.baseCurrency] : symbol.baseCurrency;
+      const quote = COMMON_CURRENCIES[symbol.quoteCurrency] ? COMMON_CURRENCIES[symbol.quoteCurrency] : symbol.quoteCurrency;
+      const pair = `${base}/${quote}`;
+
+      markets[pair] = symbol;
+    });
+
+    return markets;
+  }
+
   async fetchOHLCV(symbol, interval, since, limit) {
     const startAt = since / 1000;
     const endAt = limit ? KucoinRest.getEndTime(startAt, interval, limit) : Date.now();
@@ -86,9 +122,9 @@ class KucoinRest {
           price[5], // volume
         ]);
       }
-      console.error(`Status=${response.status} fetching instruments from ${EXCHANGE} because:`, response.data);
+      console.error(`Status=${response.status} fetching historical prices from ${EXCHANGE} because:`, response.data);
     } catch (err) {
-      console.error(`Error fetching instruments from ${EXCHANGE} because:`, err);
+      console.error(`Error fetching historical prices from ${EXCHANGE} because:`, err);
     }
     return [];
   }
