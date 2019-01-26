@@ -183,6 +183,54 @@ class KucoinRest {
     }
     return [];
   }
+
+  async fetchOrderBook(pair) {
+    if (!this.markets) {
+      await this.loadMarkets();
+    }
+    const { symbol } = this.markets[pair];
+    if (!symbol) {
+      throw new Error('Unknown pair');
+    }
+
+    const options = {
+      method: 'GET',
+      url: `${this.proxy}${this.urls.api}/api/v1/market/orderbook/level2_100`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      params: {
+        symbol,
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        const asks = (response.data.data.asks).map(ask => [
+          parseFloat(ask[0]),
+          parseFloat(ask[1]),
+        ]);
+        const bids = (response.data.data.bids).map(bid => [
+          parseFloat(bid[0]),
+          parseFloat(bid[1]),
+        ]);
+        const timestamp = Date.now();
+        return {
+          bids,
+          asks,
+          timestamp,
+          datetime: (new Date(timestamp)).toISOString(),
+        };
+      }
+      console.error(`Status=${response.status} fetching trades from ${EXCHANGE} because:`, response.data);
+    } catch (err) {
+      console.error(`Error fetching trades from ${EXCHANGE} because:`, err);
+    }
+    return {
+      bids: [], asks: [], timestamp: undefined, datetime: undefined, nonce: undefined,
+    };
+  }
 }
 
 
