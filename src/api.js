@@ -31,6 +31,8 @@ class KucoinRest {
     this.urls = {
       api: BASE_URL,
     };
+
+    this.markets = null;
   }
 
   static getEndTime(start, interval, limit) {
@@ -76,9 +78,13 @@ class KucoinRest {
     } catch (err) {
       console.error(`Error fetching get symbols from ${EXCHANGE} because:`, err);
     }
+    return { data: [] };
   }
 
-  async loadMarkets() {
+  async loadMarkets(reload = false) {
+    if (!reload && this.markets) {
+      return this.markets;
+    }
     const symbols = await this.getSymbols();
     const markets = {};
     (symbols.data).forEach((symbol) => {
@@ -88,11 +94,19 @@ class KucoinRest {
 
       markets[pair] = symbol;
     });
-
+    this.markets = markets;
     return markets;
   }
 
-  async fetchOHLCV(symbol, interval, since, limit) {
+  async fetchOHLCV(pair, interval, since, limit) {
+    if (!this.markets) {
+      await this.loadMarkets();
+    }
+    const { symbol } = this.markets[pair];
+    if (!symbol) {
+      throw new Error('Unknown pair');
+    }
+
     const startAt = since / 1000;
     const endAt = limit ? KucoinRest.getEndTime(startAt, interval, limit) : Date.now();
 
@@ -125,6 +139,47 @@ class KucoinRest {
       console.error(`Status=${response.status} fetching historical prices from ${EXCHANGE} because:`, response.data);
     } catch (err) {
       console.error(`Error fetching historical prices from ${EXCHANGE} because:`, err);
+    }
+    return [];
+  }
+
+  async fetchTrades(pair) {
+    if (!this.markets) {
+      await this.loadMarkets();
+    }
+    const { symbol } = this.markets[pair];
+    if (!symbol) {
+      throw new Error('Unknown pair');
+    }
+
+    const options = {
+      method: 'GET',
+      url: `${this.proxy}${this.urls.api}/api/v1/market/histories`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      params: {
+        symbol,
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        return (response.data.data).map(trade => ({
+          id: trade.sequence,
+          timestamp: (trade.time / 1000000),
+          datetime: new Date(trade.time / 1000000).toISOString(),
+          symbol: pair,
+          type: 'limit',
+          side: trade.side,
+          price: parseFloat(trade.price),
+          amount: parseFloat(trade.size),
+        }));
+      }
+      console.error(`Status=${response.status} fetching trades from ${EXCHANGE} because:`, response.data);
+    } catch (err) {
+      console.error(`Error fetching trades from ${EXCHANGE} because:`, err);
     }
     return [];
   }
