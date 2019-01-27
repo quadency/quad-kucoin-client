@@ -1,4 +1,5 @@
 import axios from 'axios';
+import CryptoJS from 'crypto-js';
 import { COMMON_CURRENCIES } from './utils';
 
 
@@ -223,13 +224,65 @@ class KucoinRest {
           datetime: (new Date(timestamp)).toISOString(),
         };
       }
-      console.error(`Status=${response.status} fetching trades from ${EXCHANGE} because:`, response.data);
+      console.error(`Status=${response.status} fetching orderbook from ${EXCHANGE} because:`, response.data);
     } catch (err) {
-      console.error(`Error fetching trades from ${EXCHANGE} because:`, err);
+      console.error(`Error fetching orderbook from ${EXCHANGE} because:`, err);
     }
     return {
       bids: [], asks: [], timestamp: undefined, datetime: undefined, nonce: undefined,
     };
+  }
+
+  async fetchBalance() {
+    const balancePath = '/api/v1/accounts?type=trade';
+    const method = 'GET';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${balancePath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${balancePath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        const result = {
+          free: {},
+          used: {},
+          total: {},
+          info: response.data.data,
+        };
+
+        (response.data.data).forEach((assetBalance) => {
+          const symbol = COMMON_CURRENCIES[assetBalance.currency] ? COMMON_CURRENCIES[assetBalance.currency] : assetBalance.currency;
+          const free = parseFloat(assetBalance.available);
+          const used = parseFloat(assetBalance.holds);
+          const total = parseFloat(assetBalance.balance);
+
+          result[symbol] = {
+            free, used, total,
+          };
+
+          result.free[symbol] = free;
+          result.used[symbol] = used;
+          result.total[symbol] = total;
+        });
+
+        return result;
+      }
+      console.error(`Status=${response.status} fetching user balances from ${EXCHANGE} because:`, response.data);
+    } catch (err) {
+      console.error(`Error fetching user balances from ${EXCHANGE} because:`, err);
+    }
+    return { data: [] };
   }
 }
 
