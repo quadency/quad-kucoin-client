@@ -404,19 +404,23 @@ class KucoinRest {
     if (!symbol) {
       throw new Error('Unknown pair');
     }
-    const orderId = uuidv4();
-    let ordersPath = `/api/v1/orders?clientOid=${orderId}&side=${side.toLowerCase()}&symbol=${symbol}&type=${type.toLowerCase()}`;
+
+    const data = {
+      clientOid: uuidv4(),
+      side: side.toLowerCase(),
+      symbol,
+      type: type.toLowerCase(),
+      size: amount.toString(),
+    };
+
     if (type.toUpperCase() === 'LIMIT') {
-      ordersPath = `${ordersPath}&price=${price.toString()}&size=${amount.toString()}`;
-    } else if (type.toUpperCase() === 'MARKET') {
-      ordersPath = `${ordersPath}&size=${amount.toString()}`;
+      data.price = price.toString();
     }
 
-    ordersPath = '/api/v1/orders?clientOid%3D0a877b4c-c62b-4537-8479-3dc5c69269ad%26side%3Dsell%26symbol%3DKCS-BTC%26type%3Dlimit%26price%3D0.0003%26size%3D10';
-
     const method = 'POST';
+    const ordersPath = '/api/v1/orders';
     const timestamp = Date.now();
-    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${ordersPath}`, this.secret));
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${ordersPath}${JSON.stringify(data)}`, this.secret));
 
     const options = {
       method,
@@ -428,14 +432,28 @@ class KucoinRest {
         'KC-API-TIMESTAMP': timestamp,
         'KC-API-PASSPHRASE': this.password,
       },
+      data,
     };
 
-    try {
-      const response = await axios(options);
-      console.log('response', response.data);
-    } catch (err) {
-      console.log('err', err);
+    const response = await axios(options);
+    if (response.data.msg) {
+      throw new Error(JSON.stringify({ msg: response.data.msg }));
     }
+
+    return {
+      info: response.data.data,
+      id: response.data.data.orderId,
+      timestamp,
+      datetime: (new Date(timestamp)).toISOString(),
+      lastTradeTimestamp: undefined,
+      symbol: pair,
+      type,
+      side,
+      amount,
+      price,
+      cost: (parseFloat(price) * parseFloat(amount)).toString(),
+      status: 'open',
+    };
   }
 
   async cancelOrder(orderId) {
