@@ -241,7 +241,7 @@ class KucoinRest {
     };
   }
 
-  async fetchBalance() {
+  async getAllAccounts() {
     const balancePath = '/api/v1/accounts?type=trade';
     const method = 'GET';
     const timestamp = Date.now();
@@ -259,8 +259,12 @@ class KucoinRest {
       },
     };
 
+    return axios(options);
+  }
+
+  async fetchBalance() {
     try {
-      const response = await axios(options);
+      const response = await this.getAllAccounts();
       if (response.status === 200) {
         const result = {
           free: {},
@@ -482,6 +486,88 @@ class KucoinRest {
       };
     }
     throw new Error(response.data.msg);
+  }
+
+  async getOrder(orderId) {
+    const orderPath = `/api/v1/orders/${orderId}`;
+    const method = 'GET';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${orderPath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${orderPath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    const response = await axios(options);
+    return response.data.data;
+  }
+
+  async fetchMyTrades(pair) {
+    if (!this.markets) {
+      await this.loadMarkets();
+    }
+    const { symbol } = this.markets[pair];
+    if (!symbol) {
+      throw new Error('Unknown pair');
+    }
+    const accountsResponse = await this.getAllAccounts();
+
+    const quote = pair.split('/')[1];
+    const accountIds = (accountsResponse.data.data).filter((account) => {
+      const currency = COMMON_CURRENCIES[account.currency] ? COMMON_CURRENCIES[account.currency] : account.currency;
+      return currency === quote;
+    }).map(account => account.id);
+
+    if (!accountIds.length) {
+      return [];
+    }
+
+    const accountPath = `/api/v1/accounts/${accountIds[0]}/ledgers`;
+    const method = 'GET';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${accountPath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${accountPath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    const response = await axios(options);
+    const tradesForSymbol = (response.data.data.items)
+      .filter(transaction => transaction.bizType === 'Exchange')
+      .filter(tradeObj => JSON.parse(tradeObj.context).symbol === symbol);
+
+    const orderIds = new Set(tradesForSymbol.map(tradeObject => JSON.parse(tradeObject.context).order_id));
+    const uniqueOrderIds = Array.from(orderIds);
+
+    const allOrders = await Promise.all(uniqueOrderIds.map(orderId => this.getOrder(orderId)));
+    return allOrders.map(order => ({
+      id: order.id,
+      order: order.id,
+      info: order,
+      timestamp: order.createdAt,
+      datetime: (new Date(order.createdAt)).toISOString(),
+      symbol: KucoinRest.normalizePair(order.symbol),
+      side: order.side,
+      price: order.price === '0' ? order.dealFunds : order.price,
+      amount: order.size,
+      fee: order.fee,
+    }));
   }
 }
 
