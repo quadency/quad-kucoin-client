@@ -1,6 +1,6 @@
 import axios from 'axios';
 import CryptoJS from 'crypto-js';
-import { COMMON_CURRENCIES } from './utils';
+import { COMMON_CURRENCIES, uuidv4 } from './utils';
 
 
 const EXCHANGE = 'KUCOIN';
@@ -393,6 +393,77 @@ class KucoinRest {
       console.error(`Error fetching user balances from ${EXCHANGE} because:`, err);
     }
     return [];
+  }
+
+  // todo: use params to implement stops
+  async createOrder(pair, type, side, amount, price, params = {}) {
+    if (!this.markets) {
+      await this.loadMarkets();
+    }
+    const { symbol } = this.markets[pair];
+    if (!symbol) {
+      throw new Error('Unknown pair');
+    }
+    const orderId = uuidv4();
+    let ordersPath = `/api/v1/orders?clientOid=${orderId}&side=${side.toLowerCase()}&symbol=${symbol}&type=${type.toLowerCase()}`;
+    if (type.toUpperCase() === 'LIMIT') {
+      ordersPath = `${ordersPath}&price=${price.toString()}&size=${amount.toString()}`;
+    } else if (type.toUpperCase() === 'MARKET') {
+      ordersPath = `${ordersPath}&size=${amount.toString()}`;
+    }
+
+    ordersPath = '/api/v1/orders?clientOid%3D0a877b4c-c62b-4537-8479-3dc5c69269ad%26side%3Dsell%26symbol%3DKCS-BTC%26type%3Dlimit%26price%3D0.0003%26size%3D10';
+
+    const method = 'POST';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${ordersPath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${ordersPath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      console.log('response', response.data);
+    } catch (err) {
+      console.log('err', err);
+    }
+  }
+
+  async cancelOrder(orderId) {
+    const ordersPath = `/api/v1/orders/${orderId}`;
+    const method = 'DELETE';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${ordersPath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${ordersPath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    const response = await axios(options);
+    if (response.status === 200 && response.data.data) {
+      return {
+        success: true,
+        orderId: response.data.data.cancelledOrderIds[0],
+      };
+    }
+    throw new Error(response.data.msg);
   }
 }
 
