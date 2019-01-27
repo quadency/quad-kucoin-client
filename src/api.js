@@ -99,6 +99,14 @@ class KucoinRest {
     return markets;
   }
 
+  static normalizePair(symbol) {
+    const [exchangeBase, exchangeQuote] = symbol.split('-');
+    const base = COMMON_CURRENCIES[exchangeBase] ? COMMON_CURRENCIES[exchangeBase] : exchangeBase;
+    const quote = COMMON_CURRENCIES[exchangeQuote] ? COMMON_CURRENCIES[exchangeQuote] : exchangeQuote;
+
+    return `${base}/${quote}`;
+  }
+
   async fetchOHLCV(pair, interval, since, limit) {
     if (!this.markets) {
       await this.loadMarkets();
@@ -283,6 +291,108 @@ class KucoinRest {
       console.error(`Error fetching user balances from ${EXCHANGE} because:`, err);
     }
     return { data: [] };
+  }
+
+
+  async fetchOpenOrders() {
+    const ordersPath = '/api/v1/orders?status=active';
+    const method = 'GET';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${ordersPath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${ordersPath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        const result = (response.data.data.items).map(orderObj => ({
+          info: orderObj,
+          id: orderObj.id,
+          timestamp: orderObj.createdAt,
+          datetime: (new Date(orderObj.createdAt)).toISOString(),
+          symbol: KucoinRest.normalizePair(orderObj.symbol),
+          type: orderObj.type,
+          side: orderObj.side,
+          price: parseFloat(orderObj.price),
+          amount: parseFloat(orderObj.size),
+          cost: (parseFloat(orderObj.price) * parseFloat(orderObj.size)),
+          filled: 0,
+          remaining: parseFloat(orderObj.size),
+          status: 'open',
+          fee: {
+            cost: (parseFloat(orderObj.price) * parseFloat(orderObj.size)),
+            rate: parseFloat(orderObj.fee),
+            currency: COMMON_CURRENCIES[orderObj.feeCurrency] ? COMMON_CURRENCIES[orderObj.feeCurrency] : orderObj.feeCurrency,
+          },
+        }));
+
+        return result;
+      }
+      console.error(`Status=${response.status} fetching user balances from ${EXCHANGE} because:`, response.data);
+    } catch (err) {
+      console.error(`Error fetching user balances from ${EXCHANGE} because:`, err);
+    }
+    return [];
+  }
+
+  async fetchClosedOrders() {
+    const ordersPath = '/api/v1/orders?status=done';
+    const method = 'GET';
+    const timestamp = Date.now();
+    const sign = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(`${timestamp}${method}${ordersPath}`, this.secret));
+
+    const options = {
+      method,
+      url: `${this.proxy}${this.urls.api}${ordersPath}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'KC-API-KEY': this.apiKey,
+        'KC-API-SIGN': sign,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': this.password,
+      },
+    };
+
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        const result = (response.data.data.items).map(orderObj => ({
+          info: orderObj,
+          id: orderObj.id,
+          timestamp: orderObj.createdAt,
+          datetime: (new Date(orderObj.createdAt)).toISOString(),
+          symbol: KucoinRest.normalizePair(orderObj.symbol),
+          type: orderObj.type,
+          side: orderObj.side,
+          price: parseFloat(orderObj.price),
+          amount: parseFloat(orderObj.size),
+          cost: orderObj.dealSize ? orderObj.dealSize : (parseFloat(orderObj.price) * parseFloat(orderObj.size)),
+          filled: parseFloat(orderObj.dealSize),
+          remaining: parseFloat(orderObj.size),
+          status: 'closed',
+          fee: {
+            cost: (parseFloat(orderObj.price) * parseFloat(orderObj.size)),
+            rate: parseFloat(orderObj.fee),
+            currency: COMMON_CURRENCIES[orderObj.feeCurrency] ? COMMON_CURRENCIES[orderObj.feeCurrency] : orderObj.feeCurrency,
+          },
+        }));
+        return result;
+      }
+      console.error(`Status=${response.status} fetching user balances from ${EXCHANGE} because:`, response.data);
+    } catch (err) {
+      console.error(`Error fetching user balances from ${EXCHANGE} because:`, err);
+    }
+    return [];
   }
 }
 
