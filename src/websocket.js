@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import axios from 'axios';
 import CryptoJS from 'crypto-js';
-import { uuidv4 } from './utils';
+import { COMMON_CURRENCIES, uuidv4 } from './utils';
 import KucoinRest from './api';
 
 const EXCHANGE = 'KUCOIN';
@@ -106,7 +106,55 @@ class KucoinWebsocket {
 
       socket.onerror = (error) => {
         console.log(`error with ${EXCHANGE} connection because`, error);
-        this.subscribe(subscription, callback);
+        this.subscribePublic(subscription, callback);
+      };
+    });
+  }
+
+  subscribePrivate(subscription, callback) {
+    this.getPrivateServer().then((server) => {
+      const connectionId = uuidv4();
+      const { token, instanceServers } = server;
+      const { endpoint, pingInterval: pingIntervalLength } = instanceServers[0];
+
+      const socket = new WebSocket(`${endpoint}?token=${token}&[connectId=${connectionId}]`);
+      let pingInterval;
+
+      socket.onopen = () => {
+        console.log(`${EXCHANGE} connection open`);
+
+        callback({ subject: 'socket.open' }, () => { socket.close(); });
+        const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
+        socket.send(JSON.stringify(subscriptionWithId));
+
+        pingInterval = setInterval(() => {
+          if (socket.readyState === socket.OPEN) {
+            const pingMessage = {
+              id: connectionId,
+              type: 'ping',
+            };
+            socket.send(JSON.stringify(pingMessage));
+          }
+        }, pingIntervalLength / 2);
+      };
+
+      socket.onmessage = (message) => {
+        const messageObj = JSON.parse(message.data);
+
+        const { type } = messageObj;
+        if (type === 'message') {
+          callback(messageObj, () => { socket.close(); });
+        }
+      };
+
+      socket.onclose = () => {
+        console.log(`${EXCHANGE} connection closed`);
+        clearInterval(pingInterval);
+      };
+
+      socket.onerror = (error) => {
+        console.log(`error with ${EXCHANGE} connection because`, error);
+        this.subscribePrivate(subscription, callback);
       };
     });
   }
@@ -122,17 +170,17 @@ class KucoinWebsocket {
         topic: `/market/ticker:${subscriptionPairsArray.toString()}`,
         response: true,
       };
-      this.subscribePublic(subscription, (message, socket) => {
+      this.subscribePublic(subscription, (message, disconnect) => {
         const { subject, data, topic } = message;
         if (subject === 'socket.open') {
-          callback({ messageType: 'open' }, socket);
+          callback({ messageType: 'open' }, disconnect);
         }
 
         if (subject === 'trade.ticker') {
           const subscriptionPair = topic.replace('/market/ticker:', '');
           const normalizedPair = KucoinRest.normalizePair(subscriptionPair);
 
-          callback(Object.assign({ messageType: 'message', pair: normalizedPair }, data), socket);
+          callback(Object.assign({ messageType: 'message', pair: normalizedPair }, data), disconnect);
         }
       });
     });
@@ -149,10 +197,10 @@ class KucoinWebsocket {
         topic: `/market/match:${subscriptionPairsArray.toString()}`,
         response: true,
       };
-      this.subscribePublic(subscription, (message, socket) => {
+      this.subscribePublic(subscription, (message, disconnect) => {
         const { subject, data } = message;
         if (subject === 'socket.open') {
-          callback({ messageType: 'open' }, socket);
+          callback({ messageType: 'open' }, disconnect);
           return;
         }
 
@@ -160,7 +208,7 @@ class KucoinWebsocket {
           const normalizedPair = KucoinRest.normalizePair(data.symbol);
           const payload = Object.assign({ messageType: 'message', pair: normalizedPair }, data);
           delete payload.symbol;
-          callback(payload, socket);
+          callback(payload, disconnect);
         }
       });
     });
@@ -177,10 +225,10 @@ class KucoinWebsocket {
         topic: `/market/level2:${subscriptionPairsArray.toString()}`,
         response: true,
       };
-      this.subscribePublic(subscription, (message, socket) => {
+      this.subscribePublic(subscription, (message, disconnect) => {
         const { subject, data } = message;
         if (subject === 'socket.open') {
-          callback({ messageType: 'open' }, socket);
+          callback({ messageType: 'open' }, disconnect);
           return;
         }
 
@@ -188,9 +236,31 @@ class KucoinWebsocket {
           const normalizedPair = KucoinRest.normalizePair(data.symbol);
           const payload = Object.assign({ messageType: 'message', pair: normalizedPair }, data);
           delete payload.symbol;
-          callback(payload, socket);
+          callback(payload, disconnect);
         }
       });
+    });
+  }
+
+  subscribeUserBalance(callback) {
+    const subscription = {
+      type: 'subscribe',
+      topic: '/account/balance',
+      privateChannel: true,
+      response: true,
+    };
+    this.subscribePrivate(subscription, (message, disconnect) => {
+      const { subject, data } = message;
+      if (subject === 'socket.open') {
+        callback({ messageType: 'open' }, disconnect);
+        return;
+      }
+
+      if (subject === 'account.balance') {
+        const payload = Object.assign({ messageType: 'message' }, data);
+        payload.currency = COMMON_CURRENCIES[payload.currency] ? COMMON_CURRENCIES[payload.currency] : payload.currency;
+        callback(payload, disconnect);
+      }
     });
   }
 }
