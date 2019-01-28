@@ -35,6 +35,7 @@ const TIME_FRAMES = {
   '1d': '1day',
   '1w': '1week'
 };
+const RATE_LIMIT = 2000;
 
 class KucoinRest {
   constructor(userConfig = {}) {
@@ -42,8 +43,8 @@ class KucoinRest {
       this[key] = userConfig[key];
     });
     this.proxy = '';
-    this.RATE_LIMIT = 2000;
 
+    this.rateLimit = RATE_LIMIT;
     this.urls = {
       api: BASE_URL
     };
