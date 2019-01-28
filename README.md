@@ -2,7 +2,7 @@
 node client for kucoin V2 api
 
 
-Client to allow easier access to Kucoin's V@ rest and websocket api.
+Client to allow easier access to Kucoin's V2 rest and websocket api.
 
 \* There are a handlful of assets that have been normalized to ccxt's library. 
 
