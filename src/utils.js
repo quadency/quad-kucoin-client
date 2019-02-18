@@ -11,6 +11,11 @@ function uuidv4() {
 const COMMON_CURRENCIES = {
   CAN: 'CanYaCoin',
   XRB: 'NANO',
+  XBT: 'BTC',
+  BCC: 'BCH',
+  DRK: 'DASH',
+  BCHABC: 'BCH',
+  BCHSV: 'BSV',
 };
 
 
