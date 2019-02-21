@@ -100,6 +100,25 @@ class KucoinRest {
     return markets;
   }
 
+  async getMarketList() {
+    const options = {
+      method: 'GET',
+      url: `${this.proxy}${this.urls.api}/api/v1/markets`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+    try {
+      const response = await axios(options);
+      if (response.status === 200) {
+        return response.data.data;
+      }
+    } catch (err) {
+      console.error(`Error fetching market list from ${EXCHANGE} because:`, err);
+    }
+    return [];
+  }
+
   static normalizePair(symbol) {
     const [exchangeBase, exchangeQuote] = symbol.split('-');
     const base = COMMON_CURRENCIES[exchangeBase] ? COMMON_CURRENCIES[exchangeBase] : exchangeBase;

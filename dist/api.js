@@ -122,6 +122,29 @@ class KucoinRest {
     })();
   }
 
+  getMarketList() {
+    var _this3 = this;
+
+    return _asyncToGenerator(function* () {
+      const options = {
+        method: 'GET',
+        url: `${_this3.proxy}${_this3.urls.api}/api/v1/markets`,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+      try {
+        const response = yield (0, _axios2.default)(options);
+        if (response.status === 200) {
+          return response.data.data;
+        }
+      } catch (err) {
+        console.error(`Error fetching market list from ${EXCHANGE} because:`, err);
+      }
+      return [];
+    })();
+  }
+
   static normalizePair(symbol) {
     const [exchangeBase, exchangeQuote] = symbol.split('-');
     const base = _utils.COMMON_CURRENCIES[exchangeBase] ? _utils.COMMON_CURRENCIES[exchangeBase] : exchangeBase;
@@ -131,13 +154,13 @@ class KucoinRest {
   }
 
   fetchOHLCV(pair, interval, since, limit) {
-    var _this3 = this;
+    var _this4 = this;
 
     return _asyncToGenerator(function* () {
-      if (!_this3.markets) {
-        yield _this3.loadMarkets();
+      if (!_this4.markets) {
+        yield _this4.loadMarkets();
       }
-      const { symbol } = _this3.markets[pair];
+      const { symbol } = _this4.markets[pair];
       if (!symbol) {
         throw new Error('Unknown pair');
       }
@@ -147,7 +170,7 @@ class KucoinRest {
 
       const options = {
         method: 'GET',
-        url: `${_this3.proxy}${_this3.urls.api}/api/v1/market/candles`,
+        url: `${_this4.proxy}${_this4.urls.api}/api/v1/market/candles`,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -181,20 +204,20 @@ class KucoinRest {
   }
 
   fetchTrades(pair) {
-    var _this4 = this;
+    var _this5 = this;
 
     return _asyncToGenerator(function* () {
-      if (!_this4.markets) {
-        yield _this4.loadMarkets();
+      if (!_this5.markets) {
+        yield _this5.loadMarkets();
       }
-      const { symbol } = _this4.markets[pair];
+      const { symbol } = _this5.markets[pair];
       if (!symbol) {
         throw new Error('Unknown pair');
       }
 
       const options = {
         method: 'GET',
-        url: `${_this4.proxy}${_this4.urls.api}/api/v1/market/histories`,
+        url: `${_this5.proxy}${_this5.urls.api}/api/v1/market/histories`,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -228,20 +251,20 @@ class KucoinRest {
   }
 
   fetchOrderBook(pair) {
-    var _this5 = this;
+    var _this6 = this;
 
     return _asyncToGenerator(function* () {
-      if (!_this5.markets) {
-        yield _this5.loadMarkets();
+      if (!_this6.markets) {
+        yield _this6.loadMarkets();
       }
-      const { symbol } = _this5.markets[pair];
+      const { symbol } = _this6.markets[pair];
       if (!symbol) {
         throw new Error('Unknown pair');
       }
 
       const options = {
         method: 'GET',
-        url: `${_this5.proxy}${_this5.urls.api}/api/v1/market/orderbook/level2_100`,
+        url: `${_this6.proxy}${_this6.urls.api}/api/v1/market/orderbook/level2_100`,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -278,23 +301,23 @@ class KucoinRest {
   }
 
   getAllAccounts() {
-    var _this6 = this;
+    var _this7 = this;
 
     return _asyncToGenerator(function* () {
       const balancePath = '/api/v1/accounts?type=trade';
       const method = 'GET';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${balancePath}`, _this6.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${balancePath}`, _this7.secret));
 
       const options = {
         method,
-        url: `${_this6.proxy}${_this6.urls.api}${balancePath}`,
+        url: `${_this7.proxy}${_this7.urls.api}${balancePath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this6.apiKey,
+          'KC-API-KEY': _this7.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this6.password
+          'KC-API-PASSPHRASE': _this7.password
         }
       };
 
@@ -303,11 +326,11 @@ class KucoinRest {
   }
 
   fetchBalance() {
-    var _this7 = this;
+    var _this8 = this;
 
     return _asyncToGenerator(function* () {
       try {
-        const response = yield _this7.getAllAccounts();
+        const response = yield _this8.getAllAccounts();
         if (response.status === 200) {
           const result = {
             free: {},
@@ -342,23 +365,23 @@ class KucoinRest {
   }
 
   fetchOpenOrders() {
-    var _this8 = this;
+    var _this9 = this;
 
     return _asyncToGenerator(function* () {
       const ordersPath = '/api/v1/orders?status=active';
       const method = 'GET';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}`, _this8.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}`, _this9.secret));
 
       const options = {
         method,
-        url: `${_this8.proxy}${_this8.urls.api}${ordersPath}`,
+        url: `${_this9.proxy}${_this9.urls.api}${ordersPath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this8.apiKey,
+          'KC-API-KEY': _this9.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this8.password
+          'KC-API-PASSPHRASE': _this9.password
         }
       };
 
@@ -399,23 +422,23 @@ class KucoinRest {
   }
 
   fetchClosedOrders() {
-    var _this9 = this;
+    var _this10 = this;
 
     return _asyncToGenerator(function* () {
       const ordersPath = '/api/v1/orders?status=done';
       const method = 'GET';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}`, _this9.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}`, _this10.secret));
 
       const options = {
         method,
-        url: `${_this9.proxy}${_this9.urls.api}${ordersPath}`,
+        url: `${_this10.proxy}${_this10.urls.api}${ordersPath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this9.apiKey,
+          'KC-API-KEY': _this10.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this9.password
+          'KC-API-PASSPHRASE': _this10.password
         }
       };
 
@@ -456,13 +479,13 @@ class KucoinRest {
 
   // todo: use params to implement stops
   createOrder(pair, type, side, amount, price, params = {}) {
-    var _this10 = this;
+    var _this11 = this;
 
     return _asyncToGenerator(function* () {
-      if (!_this10.markets) {
-        yield _this10.loadMarkets();
+      if (!_this11.markets) {
+        yield _this11.loadMarkets();
       }
-      const { symbol } = _this10.markets[pair];
+      const { symbol } = _this11.markets[pair];
       if (!symbol) {
         throw new Error('Unknown pair');
       }
@@ -482,17 +505,17 @@ class KucoinRest {
       const method = 'POST';
       const ordersPath = '/api/v1/orders';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}${JSON.stringify(data)}`, _this10.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}${JSON.stringify(data)}`, _this11.secret));
 
       const options = {
         method,
-        url: `${_this10.proxy}${_this10.urls.api}${ordersPath}`,
+        url: `${_this11.proxy}${_this11.urls.api}${ordersPath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this10.apiKey,
+          'KC-API-KEY': _this11.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this10.password
+          'KC-API-PASSPHRASE': _this11.password
         },
         data
       };
@@ -520,23 +543,23 @@ class KucoinRest {
   }
 
   cancelOrder(orderId) {
-    var _this11 = this;
+    var _this12 = this;
 
     return _asyncToGenerator(function* () {
       const ordersPath = `/api/v1/orders/${orderId}`;
       const method = 'DELETE';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}`, _this11.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${ordersPath}`, _this12.secret));
 
       const options = {
         method,
-        url: `${_this11.proxy}${_this11.urls.api}${ordersPath}`,
+        url: `${_this12.proxy}${_this12.urls.api}${ordersPath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this11.apiKey,
+          'KC-API-KEY': _this12.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this11.password
+          'KC-API-PASSPHRASE': _this12.password
         }
       };
 
@@ -552,23 +575,23 @@ class KucoinRest {
   }
 
   getOrder(orderId) {
-    var _this12 = this;
+    var _this13 = this;
 
     return _asyncToGenerator(function* () {
       const orderPath = `/api/v1/orders/${orderId}`;
       const method = 'GET';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${orderPath}`, _this12.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${orderPath}`, _this13.secret));
 
       const options = {
         method,
-        url: `${_this12.proxy}${_this12.urls.api}${orderPath}`,
+        url: `${_this13.proxy}${_this13.urls.api}${orderPath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this12.apiKey,
+          'KC-API-KEY': _this13.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this12.password
+          'KC-API-PASSPHRASE': _this13.password
         }
       };
 
@@ -578,17 +601,17 @@ class KucoinRest {
   }
 
   fetchMyTrades(pair) {
-    var _this13 = this;
+    var _this14 = this;
 
     return _asyncToGenerator(function* () {
-      if (!_this13.markets) {
-        yield _this13.loadMarkets();
+      if (!_this14.markets) {
+        yield _this14.loadMarkets();
       }
-      const { symbol } = _this13.markets[pair];
+      const { symbol } = _this14.markets[pair];
       if (!symbol) {
         throw new Error('Unknown pair');
       }
-      const accountsResponse = yield _this13.getAllAccounts();
+      const accountsResponse = yield _this14.getAllAccounts();
 
       const quote = pair.split('/')[1];
       const accountIds = accountsResponse.data.data.filter(function (account) {
@@ -605,17 +628,17 @@ class KucoinRest {
       const accountPath = `/api/v1/accounts/${accountIds[0]}/ledgers`;
       const method = 'GET';
       const timestamp = Date.now();
-      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${accountPath}`, _this13.secret));
+      const sign = _cryptoJs2.default.enc.Base64.stringify(_cryptoJs2.default.HmacSHA256(`${timestamp}${method}${accountPath}`, _this14.secret));
 
       const options = {
         method,
-        url: `${_this13.proxy}${_this13.urls.api}${accountPath}`,
+        url: `${_this14.proxy}${_this14.urls.api}${accountPath}`,
         headers: {
           'Content-Type': 'application/json',
-          'KC-API-KEY': _this13.apiKey,
+          'KC-API-KEY': _this14.apiKey,
           'KC-API-SIGN': sign,
           'KC-API-TIMESTAMP': timestamp,
-          'KC-API-PASSPHRASE': _this13.password
+          'KC-API-PASSPHRASE': _this14.password
         }
       };
 
@@ -632,7 +655,7 @@ class KucoinRest {
       const uniqueOrderIds = Array.from(orderIds);
 
       const allOrders = yield Promise.all(uniqueOrderIds.map(function (orderId) {
-        return _this13.getOrder(orderId);
+        return _this14.getOrder(orderId);
       }));
       return allOrders.map(function (order) {
         return {
