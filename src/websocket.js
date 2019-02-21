@@ -167,16 +167,14 @@ class KucoinWebsocket {
         response: true,
       };
       this.subscribePublic(subscription, (message, disconnect) => {
-        const { subject, data, topic } = message;
+        const { subject, data } = message;
         if (subject === 'socket.open') {
           callback({ messageType: 'open' }, disconnect);
         }
 
         if (subject === 'trade.snapshot') {
-          const subscriptionPair = topic.replace('/market/ticker:', '');
-          const normalizedPair = KucoinRest.normalizePair(subscriptionPair);
-
-          callback(Object.assign({ messageType: 'message', pair: normalizedPair }, data), disconnect);
+          const normalizedPair = KucoinRest.normalizePair(data.data.symbol);
+          callback(Object.assign({ messageType: 'message', pair: normalizedPair }, data.data), disconnect);
         }
       });
     });
