@@ -200,23 +200,40 @@ class KucoinWebsocket {
     });
   }
 
-  subscribeAllMarketTickers(callback) {
-    this.restClient.getMarketList().then(marketsList => {
-      const subscription = {
-        type: 'subscribe',
-        topic: `/market/snapshot:${marketsList}`,
-        response: true
-      };
-      this.subscribePublic(subscription, (message, disconnect) => {
-        const { subject, data } = message;
-        if (subject === 'socket.open') {
-          callback({ messageType: 'open' }, disconnect);
-        }
+  subscribeMarket(market, callback) {
+    const subscription = {
+      type: 'subscribe',
+      topic: `/market/snapshot:${market}`,
+      response: true
+    };
+    this.subscribePublic(subscription, (message, disconnect) => {
+      const { subject, data } = message;
+      if (subject === 'socket.open') {
+        callback({ messageType: 'open', market }, disconnect);
+      }
 
-        if (subject === 'trade.snapshot') {
-          const normalizedPair = _api2.default.normalizePair(data.data.symbol);
-          callback(Object.assign({ messageType: 'message', pair: normalizedPair }, data.data), disconnect);
-        }
+      if (subject === 'trade.snapshot') {
+        const normalizedPair = _api2.default.normalizePair(data.data.symbol);
+        callback(Object.assign({ messageType: 'message', pair: normalizedPair }, data.data), disconnect);
+      }
+    });
+  }
+
+  subscribeAllMarketTickers(callback) {
+    const disconnectArray = [];
+    const disconnectAll = function () {
+      disconnectArray.forEach(fn => {
+        fn();
+      });
+    };
+    this.restClient.getMarketList().then(markets => {
+      markets.forEach(market => {
+        this.subscribeMarket(market, (message, disconnect) => {
+          if (disconnect) {
+            disconnectArray.push(disconnect);
+          }
+          callback(message, disconnectAll);
+        });
       });
     });
   }
