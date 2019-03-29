@@ -16,6 +16,7 @@ const COMMON_CURRENCIES = {
   DRK: 'DASH',
   BCHABC: 'BCH',
   BCHSV: 'BSV',
+  HOT: 'HOTNOW',
 };
 
 
