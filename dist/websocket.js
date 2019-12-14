@@ -139,11 +139,11 @@ class KucoinWebsocket {
       socket.onclose = () => {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
+        this.subscribePublic(subscription, callback);
       };
 
       socket.onerror = error => {
         console.log(`error with ${EXCHANGE} connection because`, error);
-        this.subscribePublic(subscription, callback);
       };
     });
   }
@@ -191,11 +191,11 @@ class KucoinWebsocket {
       socket.onclose = () => {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
+        this.subscribePrivate(subscription, callback);
       };
 
       socket.onerror = error => {
         console.log(`error with ${EXCHANGE} connection because`, error);
-        this.subscribePrivate(subscription, callback);
       };
     });
   }
