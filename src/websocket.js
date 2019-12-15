@@ -72,10 +72,16 @@ class KucoinWebsocket {
       const socket = new WebSocket(`${endpoint}?token=${token}&[connectId=${connectionId}]`);
       let pingInterval;
 
+      let reconnectOnClose = true;
+      const disconnectFn = () => {
+        reconnectOnClose = false;
+        socket.close();
+      };
+
       socket.onopen = () => {
         console.log(`${EXCHANGE} connection open`);
 
-        callback({ subject: 'socket.open' }, () => { socket.close(); });
+        callback({ subject: 'socket.open' }, disconnectFn);
         const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
         socket.send(JSON.stringify(subscriptionWithId));
 
@@ -102,7 +108,9 @@ class KucoinWebsocket {
       socket.onclose = () => {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
-        this.subscribePublic(subscription, callback);
+        if (reconnectOnClose) {
+          this.subscribePublic(subscription, callback);
+        }
       };
 
       socket.onerror = (error) => {
@@ -120,10 +128,16 @@ class KucoinWebsocket {
       const socket = new WebSocket(`${endpoint}?token=${token}&[connectId=${connectionId}]`);
       let pingInterval;
 
+      let reconnectOnClose = true;
+      const disconnectFn = () => {
+        reconnectOnClose = false;
+        socket.close();
+      };
+
       socket.onopen = () => {
         console.log(`${EXCHANGE} connection open`);
 
-        callback({ subject: 'socket.open' }, () => { socket.close(); });
+        callback({ subject: 'socket.open' }, disconnectFn);
         const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
         socket.send(JSON.stringify(subscriptionWithId));
 
@@ -150,7 +164,9 @@ class KucoinWebsocket {
       socket.onclose = () => {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
-        this.subscribePrivate(subscription, callback);
+        if (reconnectOnClose) {
+          this.subscribePrivate(subscription, callback);
+        }
       };
 
       socket.onerror = (error) => {
