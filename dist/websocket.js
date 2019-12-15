@@ -105,12 +105,16 @@ class KucoinWebsocket {
       const socket = new _ws2.default(`${endpoint}?token=${token}&[connectId=${connectionId}]`);
       let pingInterval;
 
+      let reconnectOnClose = true;
+      const disconnectFn = () => {
+        reconnectOnClose = false;
+        socket.close();
+      };
+
       socket.onopen = () => {
         console.log(`${EXCHANGE} connection open`);
 
-        callback({ subject: 'socket.open' }, () => {
-          socket.close();
-        });
+        callback({ subject: 'socket.open' }, disconnectFn);
         const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
         socket.send(JSON.stringify(subscriptionWithId));
 
@@ -130,20 +134,20 @@ class KucoinWebsocket {
 
         const { type } = messageObj;
         if (type === 'message') {
-          callback(messageObj, () => {
-            socket.close();
-          });
+          callback(messageObj, disconnectFn);
         }
       };
 
       socket.onclose = () => {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
+        if (reconnectOnClose) {
+          this.subscribePublic(subscription, callback);
+        }
       };
 
       socket.onerror = error => {
         console.log(`error with ${EXCHANGE} connection because`, error);
-        this.subscribePublic(subscription, callback);
       };
     });
   }
@@ -157,12 +161,16 @@ class KucoinWebsocket {
       const socket = new _ws2.default(`${endpoint}?token=${token}&[connectId=${connectionId}]`);
       let pingInterval;
 
+      let reconnectOnClose = true;
+      const disconnectFn = () => {
+        reconnectOnClose = false;
+        socket.close();
+      };
+
       socket.onopen = () => {
         console.log(`${EXCHANGE} connection open`);
 
-        callback({ subject: 'socket.open' }, () => {
-          socket.close();
-        });
+        callback({ subject: 'socket.open' }, disconnectFn);
         const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
         socket.send(JSON.stringify(subscriptionWithId));
 
@@ -182,20 +190,20 @@ class KucoinWebsocket {
 
         const { type } = messageObj;
         if (type === 'message') {
-          callback(messageObj, () => {
-            socket.close();
-          });
+          callback(messageObj, disconnectFn);
         }
       };
 
       socket.onclose = () => {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
+        if (reconnectOnClose) {
+          this.subscribePrivate(subscription, callback);
+        }
       };
 
       socket.onerror = error => {
         console.log(`error with ${EXCHANGE} connection because`, error);
-        this.subscribePrivate(subscription, callback);
       };
     });
   }
