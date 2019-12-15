@@ -134,9 +134,7 @@ class KucoinWebsocket {
 
         const { type } = messageObj;
         if (type === 'message') {
-          callback(messageObj, () => {
-            socket.close();
-          });
+          callback(messageObj, disconnectFn);
         }
       };
 
@@ -192,9 +190,7 @@ class KucoinWebsocket {
 
         const { type } = messageObj;
         if (type === 'message') {
-          callback(messageObj, () => {
-            socket.close();
-          });
+          callback(messageObj, disconnectFn);
         }
       };
 
