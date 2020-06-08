@@ -317,6 +317,30 @@ class KucoinWebsocket {
       }
     });
   }
+
+  subscribeUserOrders(pairs, callback) {
+    this.loadMarketCache().then(() => {
+      const subscriptionPairsArray = !pairs || !pairs.length
+        ? (Object.keys(this.restClient.markets)).map(pair => this.restClient.markets[pair].symbol)
+        : pairs.map(pair => this.restClient.markets[pair].symbol);
+
+      const subscription = {
+        type: 'subscribe',
+        topic: `/market/level3:${subscriptionPairsArray}`,
+        privateChannel: true,
+        response: true,
+      };
+      this.subscribePrivate(subscription, (message, disconnect) => {
+        const { subject, data } = message;
+        if (subject === 'socket.open') {
+          callback({ messageType: 'open' }, disconnect);
+          return;
+        }
+        const payload = Object.assign({ messageType: 'message' }, data);
+        callback(payload, disconnect);
+      });
+    });
+  }
 }
 
 
