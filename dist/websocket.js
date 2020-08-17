@@ -96,6 +96,14 @@ class KucoinWebsocket {
     })();
   }
 
+  static subscribe(socket, connectionId, subscription) {
+    const subscribeMessages = Array.isArray(subscription) ? subscription : [subscription];
+    subscribeMessages.forEach(msg => {
+      const subscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
+      socket.send(JSON.stringify(subscribeMsgWithConnectionId));
+    });
+  }
+
   subscribePublic(subscription, callback) {
     this.getPublicServer().then(server => {
       const connectionId = (0, _utils.uuidv4)();
@@ -115,8 +123,7 @@ class KucoinWebsocket {
         console.log(`${EXCHANGE} connection open`);
 
         callback({ subject: 'socket.open' }, disconnectFn);
-        const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
-        socket.send(JSON.stringify(subscriptionWithId));
+        KucoinWebsocket.subscribe(socket, connectionId, subscription);
 
         pingInterval = setInterval(() => {
           if (socket.readyState === socket.OPEN) {
@@ -171,8 +178,7 @@ class KucoinWebsocket {
         console.log(`${EXCHANGE} connection open`);
 
         callback({ subject: 'socket.open' }, disconnectFn);
-        const subscriptionWithId = Object.assign({ id: connectionId }, subscription);
-        socket.send(JSON.stringify(subscriptionWithId));
+        KucoinWebsocket.subscribe(socket, connectionId, subscription);
 
         pingInterval = setInterval(() => {
           if (socket.readyState === socket.OPEN) {
@@ -349,13 +355,20 @@ class KucoinWebsocket {
     this.loadMarketCache().then(() => {
       const subscriptionPairsArray = !pairs || !pairs.length ? Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol) : pairs.map(pair => this.restClient.markets[pair].symbol);
 
-      const subscription = {
-        type: 'subscribe',
-        topic: `/market/level3:${subscriptionPairsArray}`,
-        privateChannel: true,
-        response: true
-      };
-      this.subscribePrivate(subscription, (message, disconnect) => {
+      // create nultiple subscribe messages because subscribing all pairs at once doesn't work
+      // subscribe 100 pairs at a time
+      const subscriptions = [];
+      while (subscriptionPairsArray.length) {
+        const batchPairs = subscriptionPairsArray.splice(0, 100);
+        subscriptions.push({
+          type: 'subscribe',
+          topic: `/market/level3:${batchPairs.toString()}`,
+          privateChannel: true,
+          response: true
+        });
+      }
+
+      this.subscribePrivate(subscriptions, (message, disconnect) => {
         const { subject, data } = message;
         if (subject === 'socket.open') {
           callback({ messageType: 'open' }, disconnect);
