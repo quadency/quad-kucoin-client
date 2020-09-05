@@ -36,10 +36,11 @@ class KucoinWebsocket {
     });
 
     this.proxy = '';
-
+    this.publicSocket = null;
     this.urls = {
       api: BASE_URL
     };
+    this.publicConnectionId = null;
     this.restClient = new _api2.default();
   }
 
@@ -100,63 +101,90 @@ class KucoinWebsocket {
     const subscribeMessages = Array.isArray(subscription) ? subscription : [subscription];
     subscribeMessages.forEach(msg => {
       const subscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
-      socket.send(JSON.stringify(subscribeMsgWithConnectionId));
+      if (socket && socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify(subscribeMsgWithConnectionId));
+      }
     });
   }
 
-  subscribePublic(subscription, callback) {
-    this.getPublicServer().then(server => {
-      const connectionId = (0, _utils.uuidv4)();
-      const { token, instanceServers } = server;
-      const { endpoint, pingInterval: pingIntervalLength } = instanceServers[0];
-
-      const socket = new _ws2.default(`${endpoint}?token=${token}&[connectId=${connectionId}]`);
-      let pingInterval;
-
-      let reconnectOnClose = true;
-      const disconnectFn = () => {
-        reconnectOnClose = false;
-        socket.close();
-      };
-
-      socket.onopen = () => {
-        console.log(`${EXCHANGE} connection open`);
-
-        callback({ subject: 'socket.open' }, disconnectFn);
-        KucoinWebsocket.subscribe(socket, connectionId, subscription);
-
-        pingInterval = setInterval(() => {
-          if (socket.readyState === socket.OPEN) {
-            const pingMessage = {
-              id: connectionId,
-              type: 'ping'
-            };
-            socket.send(JSON.stringify(pingMessage));
-          }
-        }, pingIntervalLength / 2);
-      };
-
-      socket.onmessage = message => {
-        const messageObj = JSON.parse(message.data);
-
-        const { type } = messageObj;
-        if (type === 'message') {
-          callback(messageObj, disconnectFn);
-        }
-      };
-
-      socket.onclose = () => {
-        console.log(`${EXCHANGE} connection closed`);
-        clearInterval(pingInterval);
-        if (reconnectOnClose) {
-          this.subscribePublic(subscription, callback);
-        }
-      };
-
-      socket.onerror = error => {
-        console.log(`error with ${EXCHANGE} connection because`, error);
-      };
+  unSubscribePublic(socket, connectionId, message) {
+    const unSubscribeMessages = Array.isArray(message) ? message : [message];
+    unSubscribeMessages.forEach(msg => {
+      const unSubscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
+      if (socket && socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify(unSubscribeMsgWithConnectionId));
+      }
     });
+  }
+
+  subscribePublic(subscription, callback, reConnect = false) {
+    var _this4 = this;
+
+    return _asyncToGenerator(function* () {
+      let pingIntervalLength;
+      if (_this4.publicConnectionId === null) {
+        _this4.publicConnectionId = (0, _utils.uuidv4)();
+      }
+      if (_this4.publicSocket === null || reConnect) {
+        yield _this4.getPublicServer().then(function (server) {
+          const { token, instanceServers } = server;
+          const endpoint = instanceServers[0].endpoint;
+          pingIntervalLength = instanceServers[0].pingInterval;
+          _this4.publicSocket = new _ws2.default(`${endpoint}?token=${token}&[connectId=${_this4.publicConnectionId}]`);
+        });
+      }
+
+      if (_this4.publicSocket !== null) {
+        let pingInterval;
+
+        let reconnectOnClose = true;
+        const disconnectFn = function () {
+          reconnectOnClose = false;
+          _this4.publicSocket.close();
+        };
+
+        if (_this4.publicSocket && _this4.publicSocket.readyState === _this4.publicSocket.OPEN) {
+          KucoinWebsocket.subscribe(_this4.publicSocket, _this4.publicConnectionId, subscription);
+        }
+
+        _this4.publicSocket.onopen = function () {
+          console.log(`${EXCHANGE} connection open`);
+
+          callback({ subject: 'socket.open' }, disconnectFn);
+          KucoinWebsocket.subscribe(_this4.publicSocket, _this4.publicConnectionId, subscription);
+          pingInterval = setInterval(function () {
+            if (_this4.publicSocket.readyState === _this4.publicSocket.OPEN) {
+              const pingMessage = {
+                id: _this4.publicConnectionId,
+                type: 'ping'
+              };
+              _this4.publicSocket.send(JSON.stringify(pingMessage));
+            }
+          }, pingIntervalLength / 2);
+        };
+
+        _this4.publicSocket.onmessage = function (message) {
+          const messageObj = JSON.parse(message.data);
+
+          const { type } = messageObj;
+          if (type === 'message') {
+            callback(messageObj, disconnectFn);
+          }
+        };
+
+        _this4.publicSocket.onclose = function () {
+          console.log(`${EXCHANGE} connection closed`);
+          clearInterval(pingInterval);
+          if (reconnectOnClose) {
+            _this4.subscribePublic(subscription, callback);
+          }
+        };
+
+        _this4.publicSocket.onerror = function (error) {
+          console.log(`error with ${EXCHANGE} connection because`, error);
+        };
+      }
+    })();
   }
 
   subscribePrivate(subscription, callback) {
@@ -326,6 +354,19 @@ class KucoinWebsocket {
           callback(payload, disconnect);
         }
       });
+    });
+  }
+
+  unsubscribeOrderbook(pairs) {
+    this.loadMarketCache().then(() => {
+      const unSubscribePairsArray = pairs && pairs.length ? pairs.map(pair => this.restClient.markets[pair].symbol) : Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol);
+
+      const unSubscription = {
+        type: 'unsubscribe',
+        topic: `/market/level2:${unSubscribePairsArray.toString()}`,
+        response: true
+      };
+      this.unSubscribePublic(this.publicSocket, this.publicConnectionId, unSubscription);
     });
   }
 
