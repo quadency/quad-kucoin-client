@@ -67,19 +67,19 @@ class KucoinWebsocket {
     const subscribeMessages = Array.isArray(subscription) ? subscription : [subscription];
     subscribeMessages.forEach((msg) => {
       const subscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
-      if(socket && socket.readyState === socket.OPEN) {
+      if (socket && socket.readyState === socket.OPEN) {
         socket.send(JSON.stringify(subscribeMsgWithConnectionId));
       }
     });
   }
 
-  unSubscribePublic(socket, connectionId, message) {
-      const unSubscribeMessages = Array.isArray(message) ? message : [message];
-      unSubscribeMessages.forEach((msg) => {
-        const unSubscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
-        if(socket && socket.readyState === socket.OPEN) {
-          socket.send(JSON.stringify(unSubscribeMsgWithConnectionId));
-        }
+  static unSubscribePublic(socket, connectionId, message) {
+    const unSubscribeMessages = Array.isArray(message) ? message : [message];
+    unSubscribeMessages.forEach((msg) => {
+      const unSubscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
+      if (socket && socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify(unSubscribeMsgWithConnectionId));
+      }
     });
   }
 
@@ -91,7 +91,7 @@ class KucoinWebsocket {
     if (this.publicSocket === null || reConnect) {
       await this.getPublicServer().then((server) => {
         const { token, instanceServers } = server;
-        const endpoint = instanceServers[0].endpoint;
+        const { endpoint } = instanceServers[0];
         pingIntervalLength = instanceServers[0].pingInterval;
         this.publicSocket = new WebSocket(`${endpoint}?token=${token}&[connectId=${this.publicConnectionId}]`);
       });
@@ -147,7 +147,6 @@ class KucoinWebsocket {
         console.log(`error with ${EXCHANGE} connection because`, error);
       };
     }
-
   }
 
   subscribePrivate(subscription, callback) {
@@ -337,7 +336,7 @@ class KucoinWebsocket {
         topic: `/market/level2:${unSubscribePairsArray.toString()}`,
         response: true,
       };
-      this.unSubscribePublic(this.publicSocket,this.publicConnectionId,unSubscription);
+      KucoinWebsocket.unSubscribePublic(this.publicSocket, this.publicConnectionId, unSubscription);
     });
   }
 
