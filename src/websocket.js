@@ -139,7 +139,7 @@ class KucoinWebsocket {
         console.log(`${EXCHANGE} connection closed`);
         clearInterval(pingInterval);
         if (reconnectOnClose) {
-          this.subscribePublic(subscription, callback);
+          this.subscribePublic(subscription, callback, true);
         }
       };
 
