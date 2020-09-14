@@ -15,10 +15,10 @@ class KucoinWebsocket {
 
     this.proxy = '';
     this.publicSocket = null;
+    this.publicConnectionId = null;
     this.urls = {
       api: BASE_URL,
     };
-    this.publicConnectionId = null;
     this.restClient = new KucoinRest();
   }
 
@@ -63,22 +63,12 @@ class KucoinWebsocket {
     return response.data.data;
   }
 
-  static subscribe(socket, connectionId, subscription) {
-    const subscribeMessages = Array.isArray(subscription) ? subscription : [subscription];
-    subscribeMessages.forEach((msg) => {
-      const subscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
+  static sendSubscriptionMessage(socket, connectionId, message) {
+    const messages = Array.isArray(message) ? message : [message];
+    messages.forEach((msg) => {
+      const msgWithConnectionId = Object.assign({ id: connectionId }, msg);
       if (socket && socket.readyState === socket.OPEN) {
-        socket.send(JSON.stringify(subscribeMsgWithConnectionId));
-      }
-    });
-  }
-
-  static unSubscribePublic(socket, connectionId, message) {
-    const unSubscribeMessages = Array.isArray(message) ? message : [message];
-    unSubscribeMessages.forEach((msg) => {
-      const unSubscribeMsgWithConnectionId = Object.assign({ id: connectionId }, msg);
-      if (socket && socket.readyState === socket.OPEN) {
-        socket.send(JSON.stringify(unSubscribeMsgWithConnectionId));
+        socket.send(JSON.stringify(msgWithConnectionId));
       }
     });
   }
@@ -107,14 +97,14 @@ class KucoinWebsocket {
       };
 
       if (this.publicSocket && this.publicSocket.readyState === this.publicSocket.OPEN) {
-        KucoinWebsocket.subscribe(this.publicSocket, this.publicConnectionId, subscription);
+        KucoinWebsocket.sendSubscriptionMessage(this.publicSocket, this.publicConnectionId, subscription);
       }
 
       this.publicSocket.onopen = () => {
         console.log(`${EXCHANGE} connection open`);
 
         callback({ subject: 'socket.open' }, disconnectFn);
-        KucoinWebsocket.subscribe(this.publicSocket, this.publicConnectionId, subscription);
+        KucoinWebsocket.sendSubscriptionMessage(this.publicSocket, this.publicConnectionId, subscription);
         pingInterval = setInterval(() => {
           if (this.publicSocket.readyState === this.publicSocket.OPEN) {
             const pingMessage = {
@@ -168,7 +158,7 @@ class KucoinWebsocket {
         console.log(`${EXCHANGE} connection open`);
 
         callback({ subject: 'socket.open' }, disconnectFn);
-        KucoinWebsocket.subscribe(socket, connectionId, subscription);
+        KucoinWebsocket.sendSubscriptionMessage(socket, connectionId, subscription);
 
         pingInterval = setInterval(() => {
           if (socket.readyState === socket.OPEN) {
@@ -336,7 +326,7 @@ class KucoinWebsocket {
         topic: `/market/level2:${unSubscribePairsArray.toString()}`,
         response: true,
       };
-      KucoinWebsocket.unSubscribePublic(this.publicSocket, this.publicConnectionId, unSubscription);
+      KucoinWebsocket.sendSubscriptionMessage(this.publicSocket, this.publicConnectionId, unSubscription);
     });
   }
 
