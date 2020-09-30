@@ -126,7 +126,6 @@ class KucoinWebsocket {
 
       this.publicSocket.onopen = () => {
         console.log(`${EXCHANGE} connection open`);
-
         callback({ subject: 'socket.open' }, disconnectFn);
         KucoinWebsocket.sendSubscriptionMessage(this.publicSocket, this.publicConnectionId, subscription);
         pingInterval = setInterval(() => {
@@ -218,12 +217,12 @@ class KucoinWebsocket {
     });
   }
 
-  subscribeMarket(market, callback) {
-    const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/snapshot', [market]);
+  subscribeMarket(markets, callback) {
+    const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/snapshot', markets);
     this.subscribePublic(subscription, (message, disconnect) => {
       const { subject, data } = message;
       if (subject === 'socket.open') {
-        callback({ messageType: 'open', market }, disconnect);
+        callback({ messageType: 'open' }, disconnect);
       }
 
       if (subject === 'trade.snapshot') {
@@ -241,13 +240,11 @@ class KucoinWebsocket {
       });
     };
     this.restClient.getMarketList().then((markets) => {
-      markets.forEach((market) => {
-        this.subscribeMarket(market, (message, disconnect) => {
-          if (disconnect) {
-            disconnectArray.push(disconnect);
-          }
-          callback(message, disconnectAll);
-        });
+      this.subscribeMarket(markets, (message, disconnect) => {
+        if (disconnect) {
+          disconnectArray.push(disconnect);
+        }
+        callback(message, disconnectAll);
       });
     });
   }
@@ -329,7 +326,7 @@ class KucoinWebsocket {
         ? pairs.map(pair => this.restClient.markets[pair].symbol)
         : (Object.keys(this.restClient.markets)).map(pair => this.restClient.markets[pair].symbol);
 
-      const unsubscription = KucoinWebsocket.createSubscriptionMessage('unsubscribe', '/market/level2', unsubscribePairsArray)
+      const unsubscription = KucoinWebsocket.createSubscriptionMessage('unsubscribe', '/market/level2', unsubscribePairsArray);
       KucoinWebsocket.sendSubscriptionMessage(this.publicSocket, this.publicConnectionId, unsubscription);
     });
   }
