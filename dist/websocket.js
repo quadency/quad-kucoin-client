@@ -163,7 +163,6 @@ class KucoinWebsocket {
 
         _this4.publicSocket.onopen = function () {
           console.log(`${EXCHANGE} connection open`);
-
           callback({ subject: 'socket.open' }, disconnectFn);
           KucoinWebsocket.sendSubscriptionMessage(_this4.publicSocket, _this4.publicConnectionId, subscription);
           pingInterval = setInterval(function () {
@@ -256,12 +255,12 @@ class KucoinWebsocket {
     });
   }
 
-  subscribeMarket(market, callback) {
-    const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/snapshot', [market]);
+  subscribeMarket(markets, callback) {
+    const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/snapshot', markets);
     this.subscribePublic(subscription, (message, disconnect) => {
       const { subject, data } = message;
       if (subject === 'socket.open') {
-        callback({ messageType: 'open', market }, disconnect);
+        callback({ messageType: 'open' }, disconnect);
       }
 
       if (subject === 'trade.snapshot') {
@@ -279,13 +278,11 @@ class KucoinWebsocket {
       });
     };
     this.restClient.getMarketList().then(markets => {
-      markets.forEach(market => {
-        this.subscribeMarket(market, (message, disconnect) => {
-          if (disconnect) {
-            disconnectArray.push(disconnect);
-          }
-          callback(message, disconnectAll);
-        });
+      this.subscribeMarket(markets, (message, disconnect) => {
+        if (disconnect) {
+          disconnectArray.push(disconnect);
+        }
+        callback(message, disconnectAll);
       });
     });
   }
