@@ -378,20 +378,16 @@ class KucoinWebsocket {
     });
   }
 
-  subscribeUserOrders(pairs, callback) {
-    this.loadMarketCache().then(() => {
-      const subscriptionPairsArray = !pairs || !pairs.length ? Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol) : pairs.map(pair => this.restClient.markets[pair].symbol);
-
-      const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/level3', subscriptionPairsArray, true);
-      this.subscribePrivate(subscription, (message, disconnect) => {
-        const { subject, data } = message;
-        if (subject === 'socket.open') {
-          callback({ messageType: 'open' }, disconnect);
-          return;
-        }
-        const payload = Object.assign({ messageType: 'message' }, data);
-        callback(payload, disconnect);
-      });
+  subscribeUserOrders(callback) {
+    const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/spotMarket/tradeOrders', [], true);
+    this.subscribePrivate(subscription, (message, disconnect) => {
+      const { subject, data } = message;
+      if (subject === 'socket.open') {
+        callback({ messageType: 'open' }, disconnect);
+        return;
+      }
+      const payload = Object.assign({ messageType: 'message' }, data);
+      callback(payload, disconnect);
     });
   }
 }
