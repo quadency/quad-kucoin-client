@@ -183,6 +183,10 @@ class KucoinWebsocket {
           if (type === 'message') {
             callback(messageObj, disconnectFn);
           }
+
+          if (type === 'error') {
+            console.log(`${EXCHANGE}.error:${JSON.stringify(messageObj)}`);
+          }
         };
 
         _this4.publicSocket.onclose = function () {
@@ -309,6 +313,24 @@ class KucoinWebsocket {
   }
 
   subscribeTrades(pairs, callback) {
+    const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/match', pairs);
+    this.subscribePublic(subscription, (message, disconnect) => {
+      const { subject, data } = message;
+      if (subject === 'socket.open') {
+        callback({ messageType: 'open' }, disconnect);
+        return;
+      }
+
+      if (subject === 'trade.l3match') {
+        const normalizedPair = _api2.default.normalizePair(data.symbol);
+        const payload = Object.assign({ messageType: 'message', pair: normalizedPair }, data);
+        delete payload.symbol;
+        callback(payload, disconnect);
+      }
+    });
+  }
+
+  subscribeTradesFromAllPairs(pairs, callback) {
     this.loadMarketCache().then(() => {
       const subscriptionPairsArray = !pairs || !pairs.length ? Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol) : pairs.map(pair => this.restClient.markets[pair].symbol);
 
