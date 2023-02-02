@@ -72,7 +72,7 @@ class KucoinWebsocket {
       if (this.restClient.markets[pair] === undefined) {
         console.warn(`Unrecognized pair passed to kucoin websocket client: ${pair}`);
       } else {
-        pairsArray.push(pair);
+        pairsArray.push(this.restClient.markets[pair].symbol);
       }
     });
     return pairsArray;
