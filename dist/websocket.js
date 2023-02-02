@@ -97,6 +97,21 @@ class KucoinWebsocket {
     })();
   }
 
+  getSubscriptionPairsArray(pairs) {
+    if (!pairs || !pairs.length) {
+      return Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol);
+    }
+    const pairsArray = [];
+    pairs.forEach(pair => {
+      if (this.restClient.markets[pair] === undefined) {
+        console.warn(`Unrecognized pair passed to kucoin websocket client: ${pair}`);
+      } else {
+        pairsArray.push(this.restClient.markets[pair].symbol);
+      }
+    });
+    return pairsArray;
+  }
+
   static createSubscriptionMessage(type, topic, pairs = [], privateChannel = false) {
     if (!pairs.length) {
       return [{
@@ -293,7 +308,7 @@ class KucoinWebsocket {
 
   subscribeTickers(pairs, callback) {
     this.loadMarketCache().then(() => {
-      const subscriptionPairsArray = !pairs || !pairs.length ? Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol) : pairs.map(pair => this.restClient.markets[pair].symbol);
+      const subscriptionPairsArray = this.getSubscriptionPairsArray(pairs);
 
       const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/ticker', subscriptionPairsArray);
       this.subscribePublic(subscription, (message, disconnect) => {
@@ -332,7 +347,7 @@ class KucoinWebsocket {
 
   subscribeTradesFromAllPairs(pairs, callback) {
     this.loadMarketCache().then(() => {
-      const subscriptionPairsArray = !pairs || !pairs.length ? Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol) : pairs.map(pair => this.restClient.markets[pair].symbol);
+      const subscriptionPairsArray = this.getSubscriptionPairsArray(pairs);
 
       const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/match', subscriptionPairsArray);
       this.subscribePublic(subscription, (message, disconnect) => {
@@ -354,7 +369,7 @@ class KucoinWebsocket {
 
   subscribeOrderbook(pairs, callback) {
     this.loadMarketCache().then(() => {
-      const subscriptionPairsArray = !pairs || !pairs.length ? Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol) : pairs.map(pair => this.restClient.markets[pair].symbol);
+      const subscriptionPairsArray = this.getSubscriptionPairsArray(pairs);
 
       const subscription = KucoinWebsocket.createSubscriptionMessage('subscribe', '/market/level2', subscriptionPairsArray);
       this.subscribePublic(subscription, (message, disconnect) => {
@@ -376,7 +391,7 @@ class KucoinWebsocket {
 
   unsubscribeOrderbook(pairs) {
     this.loadMarketCache().then(() => {
-      const unsubscribePairsArray = pairs && pairs.length ? pairs.map(pair => this.restClient.markets[pair].symbol) : Object.keys(this.restClient.markets).map(pair => this.restClient.markets[pair].symbol);
+      const unsubscribePairsArray = this.getSubscriptionPairsArray(pairs);
 
       const unsubscription = KucoinWebsocket.createSubscriptionMessage('unsubscribe', '/market/level2', unsubscribePairsArray);
       KucoinWebsocket.sendSubscriptionMessage(this.publicSocket, this.publicConnectionId, unsubscription);
