@@ -123,6 +123,8 @@ class KucoinWebsocket {
         const { endpoint } = instanceServers[0];
         pingIntervalLength = instanceServers[0].pingInterval;
         this.publicSocket = new WebSocket(`${endpoint}?token=${token}&[connectId=${this.publicConnectionId}]`);
+      }).catch((error) => {
+        console.log(`error with ${EXCHANGE} connection because`, error);
       });
     }
 
@@ -233,6 +235,8 @@ class KucoinWebsocket {
       socket.onerror = (error) => {
         console.log(`error with ${EXCHANGE} connection because`, error);
       };
+    }).catch((error) => {
+      console.log(`error with ${EXCHANGE} connection because`, error);
     });
   }
 
